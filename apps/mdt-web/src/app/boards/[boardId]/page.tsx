@@ -91,19 +91,21 @@ export default async function BoardPage({
               </h2>
               <ul className="flex flex-col gap-2">
                 {byColumn[col.id].map((p) => (
-                  <li
-                    key={p.id}
-                    className="rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
-                  >
-                    <p className="font-medium">{p.full_name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {redactNhs(p.nhs_number)} · {p.source}
-                    </p>
-                    {p.summary ? (
-                      <p className="mt-2 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
-                        {p.summary}
+                  <li key={p.id}>
+                    <Link
+                      href={`/patients/${p.id}`}
+                      className="block rounded-xl border border-zinc-200 bg-white p-3 text-sm transition-colors hover:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-white"
+                    >
+                      <p className="font-medium">{p.full_name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {redactNhs(p.nhs_number)} · {p.source}
                       </p>
-                    ) : null}
+                      {p.summary ? (
+                        <p className="mt-2 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
+                          {p.summary}
+                        </p>
+                      ) : null}
+                    </Link>
                   </li>
                 ))}
                 {byColumn[col.id].length === 0 ? (

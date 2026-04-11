@@ -110,6 +110,29 @@ export function redactNhsNumber(nhs: string): string {
   return digits.length >= 4 ? `••• ••• ${digits.slice(-4)}` : "•••";
 }
 
+export type TaskStatus = "OPEN" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  OPEN: "Open",
+  IN_PROGRESS: "In progress",
+  DONE: "Done",
+  CANCELLED: "Cancelled",
+};
+
+export interface MdtTask {
+  id: UUID;
+  patient_id: UUID;
+  practice_id: UUID;
+  description: string;
+  assigned_role: MdtUserRole;
+  assigned_to_user_id: UUID | null;
+  status: TaskStatus;
+  deadline: string | null;
+  created_by: UUID | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLogEntry {
   id: UUID;
   user_id: UUID | null;
