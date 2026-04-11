@@ -133,6 +133,17 @@ export interface MdtTask {
   updated_at: string;
 }
 
+export interface Note {
+  id: UUID;
+  patient_id: UUID;
+  practice_id: UUID;
+  content: string;
+  is_private: boolean;
+  created_by: UUID;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLogEntry {
   id: UUID;
   user_id: UUID | null;

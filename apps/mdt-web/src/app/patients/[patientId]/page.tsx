@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AddTaskForm } from "./add-task-form";
+import { NotesSection } from "./notes-section";
 import { TaskRow } from "./task-row";
 
 type TaskRowData = {
@@ -81,6 +82,8 @@ export default async function PatientPage({
             </ul>
           )}
         </section>
+
+        <NotesSection patientId={patientId} />
       </main>
     </div>
   );
