@@ -22,12 +22,18 @@ export default async function Home() {
             Signed in as{" "}
             <span className="font-medium">{user?.email ?? "unknown"}</span>
           </p>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <a
               href="/boards"
               className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
             >
-              Go to boards
+              MDT boards
+            </a>
+            <a
+              href="/dn-board"
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            >
+              DN board
             </a>
             <form action="/auth/signout" method="post">
               <button
