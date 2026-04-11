@@ -6,7 +6,10 @@ app = Celery(
     "mdt",
     broker=os.environ.get("CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0")),
     backend=os.environ.get("CELERY_RESULT_BACKEND", "rpc://"),
-    include=["mdt_workers.tasks.transcription"],
+    include=[
+        "mdt_workers.tasks.transcription",
+        "mdt_workers.tasks.follow_up",
+    ],
 )
 
 app.conf.task_acks_late = True
