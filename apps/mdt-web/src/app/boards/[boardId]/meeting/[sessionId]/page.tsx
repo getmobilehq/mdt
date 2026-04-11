@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { DailyFrame } from "./daily-frame";
 import { MeetingRunner } from "./meeting-runner";
 
 type PatientSnap = {
@@ -29,7 +30,7 @@ export default async function MeetingPage({
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, board_id, started_at, ended_at, daily_room_url")
+    .select("id, board_id, started_at, ended_at, daily_room_url, daily_room_name")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -74,6 +75,7 @@ export default async function MeetingPage({
             </p>
           </div>
         </header>
+        {session.daily_room_url ? <DailyFrame sessionId={sessionId} /> : null}
         {entries.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
             No patients in the meeting queue.

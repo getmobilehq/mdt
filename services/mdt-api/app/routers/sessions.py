@@ -1,4 +1,4 @@
-import os
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,7 +6,10 @@ from pydantic import BaseModel
 
 from ..audit import record_audit
 from ..auth import AuthContext, require_user
+from ..daily import create_meeting_token, create_room
 from ..supabase_client import user_client
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -16,6 +19,7 @@ class SessionOut(BaseModel):
     practice_id: str
     board_id: str
     daily_room_url: str | None
+    daily_room_name: str | None
     started_at: str
     ended_at: str | None
 
@@ -24,16 +28,9 @@ class StartSession(BaseModel):
     board_id: str
 
 
-def _create_daily_room_stub(session_id: str) -> str | None:
-    """
-    Placeholder. When DAILY_API_KEY is set this should POST to
-    https://api.daily.co/v1/rooms and return the returned url.
-    Epic 7 scaffolds the session flow; full Daily.co wiring is
-    tracked as an integration TODO.
-    """
-    if not os.environ.get("DAILY_API_KEY"):
-        return None
-    return f"https://example.daily.co/pending-{session_id[:8]}"
+class MeetingToken(BaseModel):
+    token: str
+    room_url: str
 
 
 @router.post("", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
@@ -91,12 +88,17 @@ def start_session(
             ]
         ).execute()
 
-    daily_url = _create_daily_room_stub(session["id"])
-    if daily_url:
-        sb.table("sessions").update({"daily_room_url": daily_url}).eq(
-            "id", session["id"]
-        ).execute()
-        session["daily_room_url"] = daily_url
+    # Create the Daily.co room. Failure is not fatal — the meeting can still
+    # be run without video, but without a room there is no recording pipeline.
+    try:
+        room = create_room(session["id"])
+        sb.table("sessions").update(
+            {"daily_room_url": room["url"], "daily_room_name": room["name"]}
+        ).eq("id", session["id"]).execute()
+        session["daily_room_url"] = room["url"]
+        session["daily_room_name"] = room["name"]
+    except Exception:
+        log.exception("daily.co room creation failed for session %s", session["id"])
 
     record_audit(
         user_id=auth.user_id,
@@ -107,6 +109,50 @@ def start_session(
         metadata={"board_id": payload.board_id, "patient_count": len(patients)},
     )
     return SessionOut(**session)
+
+
+@router.post("/{session_id}/token", response_model=MeetingToken)
+def mint_token(
+    session_id: str,
+    auth: AuthContext = Depends(require_user),
+) -> MeetingToken:
+    """Issue a Daily.co meeting token for the caller, scoped to this session's room."""
+    sb = user_client(auth.raw_token)
+    session_row = (
+        sb.table("sessions")
+        .select("daily_room_url, daily_room_name, started_by")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    if not session_row.data or not session_row.data.get("daily_room_name"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="session or room not found"
+        )
+    room_name = session_row.data["daily_room_name"]
+    profile = (
+        sb.table("profiles")
+        .select("full_name")
+        .eq("id", auth.user_id)
+        .maybe_single()
+        .execute()
+    )
+    full_name = (profile.data or {}).get("full_name") or (auth.email or "Clinician")
+    is_owner = session_row.data.get("started_by") == auth.user_id
+
+    try:
+        token = create_meeting_token(
+            room_name=room_name,
+            user_id=auth.user_id,
+            user_name=full_name,
+            is_owner=is_owner,
+        )
+    except Exception as exc:
+        log.exception("daily.co token mint failed for session %s", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="token service unavailable"
+        ) from exc
+    return MeetingToken(token=token, room_url=session_row.data["daily_room_url"])
 
 
 class EndSession(BaseModel):
@@ -120,7 +166,7 @@ def end_session(
     auth: AuthContext = Depends(require_user),
 ) -> SessionOut:
     sb = user_client(auth.raw_token)
-    updates = {"ended_at": datetime.utcnow().isoformat()}
+    updates: dict[str, str] = {"ended_at": datetime.utcnow().isoformat()}
     if payload.recording_s3_key:
         updates["recording_s3_key"] = payload.recording_s3_key
     result = sb.table("sessions").update(updates).eq("id", session_id).execute()

@@ -20,7 +20,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 from typing import Any
+from urllib.parse import urlparse
+
+import httpx
 
 from ..celery_app import app
 from ..supabase_client import service_client
@@ -55,6 +59,25 @@ Return a JSON object with this exact shape — no prose, no markdown:
 Only return the JSON object. Do not invent patients or actions that are
 not explicitly discussed in the transcript.
 """
+
+
+def _download_to_temp(src: str) -> tuple[str, bool]:
+    """
+    If src looks like a URL, stream it to a temp file and return (path, True).
+    Otherwise return (src, False) — it's already a local file path.
+    """
+    parsed = urlparse(src)
+    if parsed.scheme not in {"http", "https"}:
+        return src, False
+    suffix = os.path.splitext(parsed.path)[1] or ".audio"
+    fd, path = tempfile.mkstemp(prefix="mdt-recording-", suffix=suffix)
+    os.close(fd)
+    with httpx.stream("GET", src, timeout=120.0, follow_redirects=True) as r:
+        r.raise_for_status()
+        with open(path, "wb") as f:
+            for chunk in r.iter_bytes(chunk_size=1 << 20):
+                f.write(chunk)
+    return path, True
 
 
 def _whisper_transcribe(audio_path: str) -> dict[str, Any]:
@@ -95,13 +118,23 @@ def _claude_extract(transcript: str) -> dict[str, Any]:
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=30)
-def transcribe_session(self, session_id: str, audio_path: str) -> str:
-    """Transcribe audio and upsert a transcripts row for the session."""
+def transcribe_session(self, session_id: str, audio_url_or_path: str) -> str:
+    """
+    Download audio (if a URL), transcribe with Whisper, upsert transcripts row,
+    then chain into action extraction. Idempotent on session_id.
+    """
+    path, is_temp = _download_to_temp(audio_url_or_path)
     try:
-        result = _whisper_transcribe(audio_path)
+        result = _whisper_transcribe(path)
     except Exception as exc:
         log.exception("whisper failed for session %s", session_id)
         raise self.retry(exc=exc)
+    finally:
+        if is_temp:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     sb = service_client()
     sb.table("transcripts").delete().eq("session_id", session_id).execute()
@@ -114,6 +147,8 @@ def transcribe_session(self, session_id: str, audio_path: str) -> str:
         }
     ).execute()
     log.info("transcript stored session=%s duration=%ss", session_id, result.get("duration"))
+
+    extract_actions.delay(session_id)
     return session_id
 
 

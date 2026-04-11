@@ -10,6 +10,7 @@ from .routers import (
     patients,
     sessions,
     tasks,
+    webhooks,
 )
 
 app = FastAPI(title="CareLoop MDT API", version="0.1.0")
@@ -22,6 +23,7 @@ app.include_router(notes.router)
 app.include_router(sessions.router)
 app.include_router(actions.router)
 app.include_router(audit.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/health")
