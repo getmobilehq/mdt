@@ -77,6 +77,39 @@ export const BOARD_COLUMNS: ReadonlyArray<{
   { id: "COMPLETED", label: "Completed" },
 ];
 
+export type PatientSource = "GP" | "DN" | "SW";
+
+export interface Patient {
+  id: UUID;
+  practice_id: UUID;
+  board_id: UUID;
+  nhs_number: string;
+  full_name: string;
+  dob: string;
+  summary: string | null;
+  source: PatientSource;
+  column_id: BoardColumn;
+  created_by: UUID | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Patient projection safe for logs, lists, and cards — NHS number redacted to last 4. */
+export interface PatientCard {
+  id: UUID;
+  board_id: UUID;
+  full_name: string;
+  nhs_last4: string;
+  source: PatientSource;
+  column_id: BoardColumn;
+  summary: string | null;
+}
+
+export function redactNhsNumber(nhs: string): string {
+  const digits = nhs.replace(/\D/g, "");
+  return digits.length >= 4 ? `••• ••• ${digits.slice(-4)}` : "•••";
+}
+
 export interface AuditLogEntry {
   id: UUID;
   user_id: UUID | null;
