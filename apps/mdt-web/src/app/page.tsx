@@ -22,14 +22,22 @@ export default async function Home() {
             Signed in as{" "}
             <span className="font-medium">{user?.email ?? "unknown"}</span>
           </p>
-          <form action="/auth/signout" method="post" className="mt-4">
-            <button
-              type="submit"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+          <div className="mt-4 flex gap-2">
+            <a
+              href="/boards"
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
             >
-              Sign out
-            </button>
-          </form>
+              Go to boards
+            </a>
+            <form action="/auth/signout" method="post">
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </section>
       </main>
     </div>

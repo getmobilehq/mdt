@@ -1,8 +1,11 @@
 from fastapi import Depends, FastAPI
 
 from .auth import AuthContext, require_user
+from .routers import boards
 
 app = FastAPI(title="CareLoop MDT API", version="0.1.0")
+
+app.include_router(boards.router)
 
 
 @app.get("/health")
