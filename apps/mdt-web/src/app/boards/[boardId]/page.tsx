@@ -72,12 +72,22 @@ export default async function BoardPage({
             </h1>
             <p className="text-sm text-zinc-500">{board.board_type}</p>
           </div>
-          <Link
-            href={`/boards/${boardId}/patients/new`}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
-          >
-            Add patient
-          </Link>
+          <div className="flex gap-2">
+            <form action={`/boards/${boardId}/meeting/start`} method="post">
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              >
+                Start meeting
+              </button>
+            </form>
+            <Link
+              href={`/boards/${boardId}/patients/new`}
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              Add patient
+            </Link>
+          </div>
         </header>
         <section className="grid gap-4 md:grid-cols-4">
           {COLUMNS.map((col) => (
