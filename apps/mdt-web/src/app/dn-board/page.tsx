@@ -5,7 +5,7 @@ type DnTask = {
   id: string;
   patient_id: string;
   patient_name: string;
-  patient_nhs_number: string;
+  patient_nhs_last4: string | null;
   description: string;
   status: "OPEN" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   deadline: string | null;
@@ -19,9 +19,8 @@ const COLUMNS = [
 
 type ColumnId = (typeof COLUMNS)[number]["id"];
 
-function redactNhs(nhs: string): string {
-  const d = nhs.replace(/\D/g, "");
-  return d.length >= 4 ? `••• ${d.slice(-4)}` : "•••";
+function formatLast4(last4: string | null): string {
+  return last4 && last4.length === 4 ? `••• ${last4}` : "•••";
 }
 
 export default async function DnBoardPage() {
@@ -29,7 +28,7 @@ export default async function DnBoardPage() {
   const { data: tasks } = await supabase
     .from("dn_board_tasks")
     .select(
-      "id, patient_id, patient_name, patient_nhs_number, description, status, deadline",
+      "id, patient_id, patient_name, patient_nhs_last4, description, status, deadline",
     )
     .order("deadline", { ascending: true, nullsFirst: false });
 
@@ -75,7 +74,7 @@ export default async function DnBoardPage() {
                     >
                       <p className="font-medium">{t.description}</p>
                       <p className="mt-1 text-xs text-zinc-500">
-                        {t.patient_name} · {redactNhs(t.patient_nhs_number)}
+                        {t.patient_name} · {formatLast4(t.patient_nhs_last4)}
                         {t.deadline ? ` · due ${t.deadline}` : ""}
                       </p>
                     </Link>

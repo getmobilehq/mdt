@@ -2,9 +2,10 @@
 Transcription + action-extraction pipeline for MDT sessions.
 
 Flow (triggered by Daily.co recording webhook or manual API call):
-  1. download_recording(session_id) — pull audio from S3 eu-west-2
-  2. transcribe_audio(session_id) — Whisper API → transcripts row
-  3. extract_actions(session_id) — Claude API → actions rows (created_by_ai=true)
+  1. transcribe_session(session_id, audio_url) — stream audio from the URL
+     (Daily-hosted download link; R2 will move to a dedicated S3 eu-west-2
+     bucket), call Whisper API, upsert transcripts row, chain into (2).
+  2. extract_actions(session_id) — Claude API → unconfirmed actions rows.
 
 Each task is idempotent: re-running with the same session_id replaces any
 existing transcript / AI-created actions that have not been confirmed.
@@ -26,6 +27,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from ..audit import record_audit
 from ..celery_app import app
 from ..supabase_client import service_client
 
@@ -100,6 +102,28 @@ def _whisper_transcribe(audio_path: str) -> dict[str, Any]:
     }
 
 
+class ClaudeResponseError(Exception):
+    """Claude returned something that isn't the expected JSON envelope."""
+
+
+def _extract_json_payload(text: str) -> str:
+    """
+    Strip Markdown code fences and surrounding prose so json.loads can parse.
+    Falls back to the first '{' ... last '}' slice if fences aren't used.
+    """
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.strip("`")
+        if stripped.lower().startswith("json"):
+            stripped = stripped[4:]
+        stripped = stripped.strip()
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return stripped[start : end + 1]
+    return stripped
+
+
 def _claude_extract(transcript: str) -> dict[str, Any]:
     """Call Claude to extract structured actions. Returns parsed JSON."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -114,7 +138,14 @@ def _claude_extract(transcript: str) -> dict[str, Any]:
         messages=[{"role": "user", "content": transcript}],
     )
     text = "".join(block.text for block in response.content if block.type == "text")
-    return json.loads(text)
+    payload = _extract_json_payload(text)
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ClaudeResponseError(f"claude returned non-JSON response: {exc}") from exc
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("patients"), list):
+        raise ClaudeResponseError("claude response missing 'patients' array")
+    return parsed
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=30)
@@ -147,6 +178,15 @@ def transcribe_session(self, session_id: str, audio_url_or_path: str) -> str:
         }
     ).execute()
     log.info("transcript stored session=%s duration=%ss", session_id, result.get("duration"))
+
+    practice_id = _session_practice_id(sb, session_id)
+    record_audit(
+        action="TRANSCRIPT_CREATED",
+        resource_type="sessions",
+        resource_id=session_id,
+        practice_id=practice_id,
+        metadata={"duration_s": result.get("duration"), "language": result.get("language")},
+    )
 
     extract_actions.delay(session_id)
     return session_id
@@ -211,4 +251,26 @@ def extract_actions(self, session_id: str) -> int:
             ).execute()
             inserted += 1
     log.info("actions extracted session=%s count=%d", session_id, inserted)
+
+    practice_id = _session_practice_id(sb, session_id)
+    record_audit(
+        action="AI_ACTIONS_EXTRACTED",
+        resource_type="sessions",
+        resource_id=session_id,
+        practice_id=practice_id,
+        metadata={"count": inserted, "model": CLAUDE_MODEL},
+    )
     return inserted
+
+
+def _session_practice_id(sb, session_id: str) -> str | None:
+    row = (
+        sb.table("sessions")
+        .select("practice_id")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return row[0].get("practice_id") if row else None

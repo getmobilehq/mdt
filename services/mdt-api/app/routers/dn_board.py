@@ -33,13 +33,12 @@ def list_dn_tasks(
     rows = q.order("deadline").execute().data or []
     result: list[DnBoardTask] = []
     for r in rows:
-        nhs = r.get("patient_nhs_number") or ""
         result.append(
             DnBoardTask(
                 id=r["id"],
                 patient_id=r["patient_id"],
                 patient_name=r["patient_name"],
-                patient_nhs_last4=nhs[-4:] if len(nhs) >= 4 else "",
+                patient_nhs_last4=r.get("patient_nhs_last4") or "",
                 description=r["description"],
                 status=r["status"],
                 deadline=r.get("deadline"),
