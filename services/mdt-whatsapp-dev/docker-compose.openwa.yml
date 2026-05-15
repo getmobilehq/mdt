@@ -1,0 +1,34 @@
+# @open-wa/wa-automate — local WhatsApp REST server for CONCEPT TESTING only.
+# Not for production: it drives a regular WhatsApp Web session (no Meta
+# Business approval), is rate-limit / ban prone, and open-wa's licence
+# restricts unlicensed/commercial use. Use a throwaway test number.
+#
+#   docker compose -f docker-compose.openwa.yml up -d
+#   docker compose -f docker-compose.openwa.yml logs -f   # scan the ASCII QR
+#
+# Then point the workers at it:
+#   WHATSAPP_PROVIDER=openwa
+#   OPENWA_API_URL=http://localhost:8002
+#   OPENWA_API_KEY=dev-secret
+services:
+  wa-automate:
+    image: openwa/wa-automate:latest
+    container_name: mdt-wa-automate
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    volumes:
+      # Persists the logged-in session so you only scan the QR once.
+      - ./_session:/app/session
+    command:
+      - "--port"
+      - "8002"
+      - "--api-host"
+      - "0.0.0.0"
+      - "--key"
+      - "dev-secret"
+      - "--session-id"
+      - "mdt-dev"
+      - "--session-data-path"
+      - "/app/session"
+      - "--disable-spins"

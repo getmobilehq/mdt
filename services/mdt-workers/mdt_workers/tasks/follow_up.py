@@ -4,22 +4,28 @@ Nightly follow-up automation.
 Scans tasks whose status != DONE and whose deadline is either
 within the next 3 days (DUE_SOON) or in the past (OVERDUE).
 For each match, inserts one reminder row per (task, kind, period_key)
-and (if Twilio creds + template SIDs are configured) sends a WhatsApp
-notification via an approved Meta Business template.
+and (if a provider is configured) sends a WhatsApp notification.
+
+Provider switch — WHATSAPP_PROVIDER:
+  "twilio" (default) — Meta-approved Business templates via Twilio. Production path.
+  "openwa"           — @open-wa/wa-automate REST server. Free-form text from a
+                       regular WhatsApp account; no Meta approval needed. For
+                       rapid concept testing only — see services/mdt-whatsapp-dev/.
 
 Idempotency is enforced by the unique index on
 reminders(task_id, kind, period_key) — re-running the job on the same
 day is a no-op.
 
-Safety:
-  - Message body is controlled by the approved template; we only supply
-    variables. Never include NHS numbers or full patient names.
-  - Template variables are truncated to Meta's 1024-char limit (we cap
-    lower for safety).
+Safety (both providers):
+  - Body carries only the task description + deadline. Never include NHS
+    numbers or full patient names.
+  - The description is truncated to TEMPLATE_VAR_MAX_CHARS (well under Meta's
+    1024-char template-variable limit).
 
-Templates (configure in Twilio Content Builder, approved by Meta):
+Twilio templates (configure in Content Builder, approved by Meta):
   TWILIO_TEMPLATE_SID_OVERDUE   — "CareLoop MDT: overdue task — {{1}} (was due {{2}}). Please update or reassign."
   TWILIO_TEMPLATE_SID_DUE_SOON  — "CareLoop MDT: task due soon — {{1}} by {{2}}."
+The openwa path renders the same two sentences as plain text locally.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import date, timedelta
 
 from celery.schedules import crontab
@@ -97,6 +104,88 @@ def _twilio_send(
     return msg.sid
 
 
+def _provider() -> str:
+    """twilio (default) | openwa. Unknown values fall back to twilio."""
+    p = (os.environ.get("WHATSAPP_PROVIDER") or "twilio").strip().lower()
+    return "openwa" if p == "openwa" else "twilio"
+
+
+def _normalize_msisdn(phone: str) -> str:
+    """E.164-ish phone → open-wa chat id ('<digits>@c.us', no '+')."""
+    digits = re.sub(r"\D", "", phone or "")
+    return f"{digits}@c.us"
+
+
+def _render_message(kind: str, task_description: str, deadline: str) -> str:
+    """Plain-text equivalent of the approved Twilio templates (openwa path).
+
+    Same safety rule as the templated path: description only, capped — never
+    NHS numbers or full patient names.
+    """
+    desc = (task_description or "")[:TEMPLATE_VAR_MAX_CHARS]
+    if kind == "OVERDUE":
+        return (
+            f"CareLoop MDT: overdue task — {desc} (was due {deadline}). "
+            "Please update or reassign."
+        )
+    return f"CareLoop MDT: task due soon — {desc} by {deadline}."
+
+
+def _openwa_send(to_chat_id: str, message: str) -> str | None:
+    """Send free-form text via a running @open-wa/wa-automate REST server.
+
+    Expects the EASY API server (see services/mdt-whatsapp-dev/). Returns the
+    provider message id on success, else None (logged, never raises).
+    """
+    base = (os.environ.get("OPENWA_API_URL") or "").rstrip("/")
+    if not base:
+        log.info("openwa not configured (OPENWA_API_URL unset); skipping send")
+        return None
+    key = os.environ.get("OPENWA_API_KEY") or ""
+    headers = {"Content-Type": "application/json"}
+    if key:
+        # open-wa accepts either header depending on launch flags; send both.
+        headers["api_key"] = key
+        headers["Authorization"] = f"Bearer {key}"
+
+    import httpx  # type: ignore
+
+    try:
+        resp = httpx.post(
+            f"{base}/sendText",
+            headers=headers,
+            json={"args": {"to": to_chat_id, "content": message}},
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:  # network / auth / not-logged-in
+        log.warning("openwa send failed: %s", exc)
+        return None
+
+    ref = data.get("response") if isinstance(data, dict) else None
+    if isinstance(ref, str) and ref:
+        return ref
+    return "openwa:sent" if (isinstance(data, dict) and data.get("success")) else None
+
+
+def _send_whatsapp(
+    kind: str, to: str, task_description: str, deadline: str
+) -> str | None:
+    """Provider-agnostic dispatch. Returns provider_ref or None (never raises)."""
+    if _provider() == "openwa":
+        return _openwa_send(
+            _normalize_msisdn(to), _render_message(kind, task_description, deadline)
+        )
+    content_sid = _template_sid_for(kind)
+    if not content_sid:
+        log.warning("twilio template SID for kind=%s not configured; skipping send", kind)
+        return None
+    return _twilio_send(
+        to, content_sid, _template_variables(task_description, deadline)
+    )
+
+
 @app.task(bind=True)
 def scan_followups(self) -> dict[str, int]:
     today = date.today()
@@ -116,6 +205,7 @@ def scan_followups(self) -> dict[str, int]:
         or []
     )
 
+    provider = _provider()
     sent_due = 0
     sent_overdue = 0
     for t in rows:
@@ -136,18 +226,11 @@ def scan_followups(self) -> dict[str, int]:
             continue
 
         recipient_phone = _resolve_phone(sb, t.get("assigned_to_user_id"))
-        content_sid = _template_sid_for(kind)
-        provider_ref = None
-        if recipient_phone and content_sid:
-            provider_ref = _twilio_send(
-                recipient_phone,
-                content_sid,
-                _template_variables(t["description"], t["deadline"]),
-            )
-        elif recipient_phone and not content_sid:
-            log.warning(
-                "template SID for kind=%s not configured; skipping send", kind
-            )
+        provider_ref = (
+            _send_whatsapp(kind, recipient_phone, t["description"], t["deadline"])
+            if recipient_phone
+            else None
+        )
 
         sb.table("reminders").insert(
             {
@@ -169,9 +252,12 @@ def scan_followups(self) -> dict[str, int]:
             metadata={
                 "kind": kind,
                 "channel": "WHATSAPP",
+                "provider": provider,
                 "period_key": period_key,
                 "delivered": provider_ref is not None,
-                "template_sid": content_sid,
+                "template_sid": (
+                    _template_sid_for(kind) if provider == "twilio" else None
+                ),
             },
         )
 

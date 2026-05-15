@@ -15,3 +15,6 @@ __pycache__/
 coverage/
 .vercel
 .turbo
+
+# open-wa concept-testing WhatsApp session (login credentials — never commit)
+services/mdt-whatsapp-dev/_session/
