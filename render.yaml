@@ -1,0 +1,83 @@
+# Render Blueprint — CareLoop MDT backend (Python API + Celery workers + Redis).
+#
+# Deploy: Render Dashboard → New → Blueprint → pick this repo. Render reads
+# this file, creates the 3 resources below, and wires REDIS_URL /
+# CELERY_BROKER_URL automatically. Secrets marked `sync: false` are NOT in
+# git — set them in the Render dashboard (or via API) per service.
+#
+# Region: EU/Frankfurt — this app handles NHS numbers + patient data; keep
+# data in-region. (Supabase project region should match where possible.)
+#
+# Plans: api=free (spins down after ~15m idle — bump to `starter` for an
+# always-on API), worker=starter (Render has NO free tier for background
+# workers), redis=free (25MB, fine for this Celery broker volume).
+
+services:
+  # ---- FastAPI ----
+  - type: web
+    name: mdt-api
+    runtime: python
+    rootDir: services/mdt-api
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: ENVIRONMENT
+        value: production
+      - key: AWS_REGION
+        value: eu-west-2
+      - key: REDIS_URL
+        fromService: { type: redis, name: mdt-redis, property: connectionString }
+      - key: CELERY_BROKER_URL
+        fromService: { type: redis, name: mdt-redis, property: connectionString }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_ANON_KEY, sync: false }
+      - { key: SUPABASE_SERVICE_ROLE_KEY, sync: false }
+      - { key: SUPABASE_JWT_SECRET, sync: false }
+      - { key: DAILY_API_KEY, sync: false }
+      - { key: DAILY_DOMAIN, sync: false }
+      - { key: DAILY_WEBHOOK_SECRET, sync: false }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+
+  # ---- Celery worker (+ embedded beat for the daily 07:00 follow-up scan) ----
+  - type: worker
+    name: mdt-workers
+    runtime: python
+    rootDir: services/mdt-workers
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A mdt_workers.celery_app worker --beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: AWS_REGION
+        value: eu-west-2
+      - key: REDIS_URL
+        fromService: { type: redis, name: mdt-redis, property: connectionString }
+      - key: CELERY_BROKER_URL
+        fromService: { type: redis, name: mdt-redis, property: connectionString }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_SERVICE_ROLE_KEY, sync: false }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: TWILIO_ACCOUNT_SID, sync: false }
+      - { key: TWILIO_AUTH_TOKEN, sync: false }
+      - { key: TWILIO_WHATSAPP_NUMBER, sync: false }
+      - { key: TWILIO_TEMPLATE_SID_OVERDUE, sync: false }
+      - { key: TWILIO_TEMPLATE_SID_DUE_SOON, sync: false }
+
+  # ---- Redis (Celery broker). noeviction so queued tasks are never dropped. ----
+  - type: redis
+    name: mdt-redis
+    region: frankfurt
+    plan: free
+    maxmemoryPolicy: noeviction
+    ipAllowList: []   # internal-only; reachable from the services above
