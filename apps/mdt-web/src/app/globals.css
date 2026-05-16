@@ -1,26 +1,206 @@
 @import "tailwindcss";
 
+/* Fernstrom is a light, warm-paper system — no OS dark theme.
+   Scoping dark: to a .dark class (never set) neutralises the
+   prefers-color-scheme dark utilities scattered through components. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   Fernstrom design tokens (ported from the design system).
+   Font families resolve to next/font variables (see layout.tsx).
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Paper & ink */
+  --paper: #f4f1ea;
+  --paper-2: #ede9de;
+  --paper-3: #e4dfd0;
+  --bone: #faf8f2;
+  --ink: #15181c;
+  --ink-soft: #2b3138;
+
+  /* Slate (neutral) */
+  --slate-900: #1a1f26;
+  --slate-800: #2b3138;
+  --slate-700: #3d4550;
+  --slate-600: #5c6470;
+  --slate-500: #7b838f;
+  --slate-400: #9ca3ad;
+  --slate-300: #b8bcc2;
+  --slate-200: #d4d2cb;
+  --slate-100: #e6e4de;
+  --slate-50: #efede6;
+
+  /* Eucalyptus (primary brand) */
+  --eucalyptus-900: #11362d;
+  --eucalyptus-800: #1b4d40;
+  --eucalyptus-700: #245f50;
+  --eucalyptus-600: #2f6b5c;
+  --eucalyptus-500: #3f8775;
+  --eucalyptus-400: #6ba593;
+  --eucalyptus-300: #9cc4b6;
+  --eucalyptus-200: #c4ddd2;
+  --eucalyptus-100: #deebe4;
+  --eucalyptus-50: #ecf3ee;
+
+  /* Iodine (warm accent — NEVER danger) */
+  --iodine-700: #8e3d1f;
+  --iodine-600: #b85533;
+  --iodine-500: #c97049;
+  --iodine-100: #f5e1d4;
+  --iodine-50: #faefe7;
+
+  /* Semantic */
+  --critical: #b22a2a;
+  --critical-soft: #f2d7d7;
+  --caution: #b97505;
+  --caution-soft: #f4e4c4;
+  --safe: #2f6b5c;
+  --safe-soft: #deebe4;
+  --info: #2b5a8e;
+
+  --border-hairline: rgba(21, 24, 28, 0.1);
+  --border-soft: rgba(21, 24, 28, 0.06);
+  --border-strong: rgba(21, 24, 28, 0.2);
+
+  /* Families (resolved from next/font vars; safe fallbacks) */
+  --font-display: var(--font-instrument-serif), "Source Serif 4", Georgia, serif;
+  --font-ui: var(--font-geist-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono-stack: var(--font-geist-mono), "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  --shadow-1: 0 1px 0 rgba(21, 24, 28, 0.04), 0 1px 2px rgba(21, 24, 28, 0.04);
+  --shadow-2: 0 1px 0 rgba(21, 24, 28, 0.04), 0 4px 12px rgba(21, 24, 28, 0.06);
+  --shadow-3: 0 2px 0 rgba(21, 24, 28, 0.04), 0 12px 32px rgba(21, 24, 28, 0.08);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* ============================================================
+   Map Tailwind's theme onto Fernstrom tokens. Overriding the
+   neutral palette (white/black/zinc/red) re-skins every existing
+   component without editing component files.
+   ============================================================ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+
+  --color-white: var(--bone);
+  --color-black: var(--ink);
+
+  /* zinc -> warm slate / paper / ink */
+  --color-zinc-50: var(--slate-50);
+  --color-zinc-100: var(--slate-100);
+  --color-zinc-200: var(--slate-200);
+  --color-zinc-300: var(--slate-300);
+  --color-zinc-400: var(--slate-400);
+  --color-zinc-500: var(--slate-500);
+  --color-zinc-600: var(--slate-600);
+  --color-zinc-700: var(--slate-700);
+  --color-zinc-800: var(--slate-800);
+  --color-zinc-900: var(--ink);
+  --color-zinc-950: var(--ink);
+
+  /* errors stay semantic, on-palette */
+  --color-red-500: var(--critical);
+  --color-red-600: var(--critical);
+  --color-red-700: var(--critical);
+
+  /* Fernstrom-named utilities for intentional use */
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-bone: var(--bone);
+  --color-ink: var(--ink);
+  --color-eucalyptus-50: var(--eucalyptus-50);
+  --color-eucalyptus-100: var(--eucalyptus-100);
+  --color-eucalyptus-600: var(--eucalyptus-600);
+  --color-eucalyptus-700: var(--eucalyptus-700);
+  --color-iodine-600: var(--iodine-600);
+  --color-critical: var(--critical);
+  --color-caution: var(--caution);
+  --color-hairline: var(--border-hairline);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono-stack);
+  --font-display: var(--font-display);
+
+  /* Fernstrom is geometric — restrained radii */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+  --radius-2xl: 12px;
+  --radius-3xl: 16px;
+
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   Base element styles
+   ============================================================ */
+html {
+  background: var(--paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Editorial serif for primary headings (the Fernstrom signature).
+   Components keep their size/weight utilities; only the family
+   cascades — the "CareLoop MDT" wordmark text is unchanged. */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+h2,
+h3,
+h4 {
+  font-family: var(--font-ui);
+  letter-spacing: -0.01em;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono-stack);
+}
+
+a {
+  color: var(--eucalyptus-700);
+  text-underline-offset: 2px;
+}
+a:hover {
+  color: var(--ink);
+}
+
+/* Visible eucalyptus focus ring everywhere (never a bare outline:none) */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(47, 107, 92, 0.25);
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--eucalyptus-100);
+  color: var(--ink);
+}
+
+::placeholder {
+  color: var(--slate-400);
+}
+
+/* Hairline rules — a Fernstrom signature */
+hr {
+  border: 0;
+  border-top: 1px solid var(--border-hairline);
 }
