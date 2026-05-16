@@ -27,7 +27,7 @@ export default async function AuditPage({
     .order("name");
 
   let rows: AuditRow[] = [];
-  let selected = practice_id ?? practices?.[0]?.id ?? null;
+  const selected = practice_id ?? practices?.[0]?.id ?? null;
 
   if (selected) {
     const { data } = await supabase

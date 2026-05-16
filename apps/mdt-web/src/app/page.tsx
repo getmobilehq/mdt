@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -23,24 +25,24 @@ export default async function Home() {
             <span className="font-medium">{user?.email ?? "unknown"}</span>
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <a
+            <Link
               href="/boards"
               className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
             >
               MDT boards
-            </a>
-            <a
+            </Link>
+            <Link
               href="/dn-board"
               className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
             >
               DN board
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/audit"
               className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
             >
               Audit log
-            </a>
+            </Link>
             <form action="/auth/signout" method="post">
               <button
                 type="submit"
