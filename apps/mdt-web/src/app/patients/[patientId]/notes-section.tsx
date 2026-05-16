@@ -39,10 +39,20 @@ export function NotesSection({ patientId }: { patientId: string }) {
     e.preventDefault();
     setPending(true);
     setError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setPending(false);
+      setError("You must be signed in to add a note.");
+      return;
+    }
+    // notes.created_by is NOT NULL and RLS requires created_by = auth.uid().
     const { error } = await supabase.from("notes").insert({
       patient_id: patientId,
       content,
       is_private: isPrivate,
+      created_by: user.id,
     });
     setPending(false);
     if (error) {
