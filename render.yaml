@@ -8,9 +8,9 @@
 # Region: EU/Frankfurt — this app handles NHS numbers + patient data; keep
 # data in-region. (Supabase project region should match where possible.)
 #
-# Plans: api=free (spins down after ~15m idle — bump to `starter` for an
-# always-on API), worker=starter (Render has NO free tier for background
-# workers), redis=free (25MB, fine for this Celery broker volume).
+# Plans: api=starter (always-on, no cold starts), worker=starter (Render
+# has NO free tier for background workers), redis=free (25MB, fine for
+# this Celery broker volume).
 
 services:
   # ---- FastAPI ----
@@ -19,7 +19,7 @@ services:
     runtime: python
     rootDir: services/mdt-api
     region: frankfurt
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
