@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DailyFrame } from "./daily-frame";
 import { MeetingRunner } from "./meeting-runner";
@@ -60,13 +59,7 @@ export default async function MeetingPage({
       <main className="mx-auto w-full max-w-4xl flex flex-col gap-6">
         <header className="flex items-center justify-between">
           <div>
-            <Link
-              href={`/boards/${boardId}`}
-              className="text-xs uppercase tracking-wide text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-            >
-              ← Back to board
-            </Link>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Meeting in progress
             </h1>
             <p className="text-sm text-zinc-500">
