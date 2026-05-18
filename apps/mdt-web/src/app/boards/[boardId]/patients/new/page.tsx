@@ -10,6 +10,15 @@ const SOURCES = [
   { id: "SW", label: "Social Worker" },
 ] as const;
 
+// Date of birth must be in the past (no future births) and within a
+// plausible human lifespan — scopes the native date picker accordingly.
+const DOB_MAX = new Date().toISOString().slice(0, 10);
+const DOB_MIN = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 120);
+  return d.toISOString().slice(0, 10);
+})();
+
 export default function NewPatientPage({
   params,
 }: {
@@ -98,6 +107,8 @@ export default function NewPatientPage({
           <input
             required
             type="date"
+            min={DOB_MIN}
+            max={DOB_MAX}
             value={dob}
             onChange={(e) => setDob(e.target.value)}
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
