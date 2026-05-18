@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   ClipboardList,
   ScrollText,
+  Users,
   ChevronRight,
   LogOut,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 const NAV = [
   { href: "/boards", label: "Boards", icon: LayoutGrid },
   { href: "/dn-board", label: "DN board", icon: ClipboardList },
+  { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },
 ];
 

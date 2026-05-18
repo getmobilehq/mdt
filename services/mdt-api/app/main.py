@@ -10,6 +10,7 @@ from .routers import (
     patients,
     sessions,
     tasks,
+    users,
     webhooks,
 )
 
@@ -23,6 +24,7 @@ app.include_router(notes.router)
 app.include_router(sessions.router)
 app.include_router(actions.router)
 app.include_router(audit.router)
+app.include_router(users.router)
 app.include_router(webhooks.router)
 
 
