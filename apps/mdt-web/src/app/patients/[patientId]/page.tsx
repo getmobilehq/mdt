@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AddTaskForm } from "./add-task-form";
@@ -46,13 +45,7 @@ export default async function PatientPage({
     <div className="flex flex-1 flex-col px-6 py-10">
       <main className="mx-auto w-full max-w-3xl flex flex-col gap-8">
         <header>
-          <Link
-            href={`/boards/${patient.board_id}`}
-            className="text-xs uppercase tracking-wide text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-          >
-            ← Back to board
-          </Link>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             {patient.full_name}
           </h1>
           <p className="text-sm text-zinc-500">

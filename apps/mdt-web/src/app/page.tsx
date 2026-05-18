@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -9,49 +7,25 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-16">
-      <main className="w-full max-w-xl flex flex-col gap-6">
+    <div className="px-6 py-10">
+      <main className="mx-auto w-full max-w-3xl flex flex-col gap-6">
         <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            CareLoop MDT
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">CareLoop MDT</h1>
           <p className="text-sm text-zinc-500">
-            Clinical Multi-Disciplinary Team coordination.
+            Clinical multi-disciplinary team coordination.
           </p>
         </header>
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-sm">
+        <section className="rounded-xl border border-hairline bg-white p-6">
+          <p className="text-sm text-zinc-700">
             Signed in as{" "}
-            <span className="font-medium">{user?.email ?? "unknown"}</span>
+            <span className="font-medium text-ink">
+              {user?.email ?? "unknown"}
+            </span>
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/boards"
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
-            >
-              MDT boards
-            </Link>
-            <Link
-              href="/dn-board"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
-            >
-              DN board
-            </Link>
-            <Link
-              href="/admin/audit"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
-            >
-              Audit log
-            </Link>
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <p className="mt-2 text-sm text-zinc-500">
+            Use the sidebar to open boards, the district nurse board, or the
+            audit log.
+          </p>
         </section>
       </main>
     </div>
