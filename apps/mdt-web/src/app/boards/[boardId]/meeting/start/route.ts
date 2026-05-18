@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+/**
+ * Start an MDT meeting.
+ *
+ * Delegates to the API's POST /sessions, which is the single source of
+ * truth: it creates the session, snapshots patients, provisions the
+ * Daily.co room (sets daily_room_url/daily_room_name) and writes audit.
+ * Doing the Supabase insert here directly skipped Daily room creation,
+ * so the meeting page rendered no video/audio.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ boardId: string }> },
@@ -8,57 +17,34 @@ export async function POST(
   const { boardId } = await params;
   const supabase = await createSupabaseServerClient();
 
-  const { data: board } = await supabase
-    .from("mdt_boards")
-    .select("practice_id")
-    .eq("id", boardId)
-    .maybeSingle();
-
-  if (!board) {
-    return NextResponse.json({ error: "board not found" }, { status: 404 });
-  }
-
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session: authSession },
+  } = await supabase.auth.getSession();
 
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .insert({
-      practice_id: board.practice_id,
-      board_id: boardId,
-      started_by: user?.id,
-    })
-    .select("id")
-    .single();
+  if (!authSession) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
 
-  if (error || !session) {
-    return NextResponse.json(
-      { error: error?.message ?? "failed to start session" },
-      { status: 400 },
+  const apiUrl = process.env.MDT_API_URL ?? "http://localhost:8000";
+  const upstream = await fetch(`${apiUrl}/sessions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${authSession.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ board_id: boardId }),
+    cache: "no-store",
+  });
+
+  if (!upstream.ok) {
+    const text = await upstream.text();
+    return new NextResponse(
+      text || JSON.stringify({ error: "failed to start session" }),
+      { status: upstream.status, headers: { "content-type": "application/json" } },
     );
   }
 
-  const { data: patients } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("board_id", boardId)
-    .neq("column_id", "COMPLETED")
-    .order("created_at");
-
-  if (patients && patients.length > 0) {
-    await supabase.from("session_patients").insert(
-      patients.map((p, i) => ({
-        session_id: session.id,
-        patient_id: p.id,
-        position: i,
-      })),
-    );
-  }
-
-  const url = new URL(
-    `/boards/${boardId}/meeting/${session.id}`,
-    request.url,
-  );
+  const session = (await upstream.json()) as { id: string };
+  const url = new URL(`/boards/${boardId}/meeting/${session.id}`, request.url);
   return NextResponse.redirect(url, 303);
 }
