@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from postgrest.exceptions import APIError
 from pydantic import BaseModel, Field
 
 from ..audit import record_audit
@@ -15,6 +16,16 @@ BoardType = Literal[
     "CHILD_CONFERENCE",
     "ADULT_SAFEGUARDING",
 ]
+
+# Human-friendly labels for messages shown to clinicians.
+BOARD_TYPE_LABELS: dict[str, str] = {
+    "FRAILTY": "Frailty",
+    "COMMUNITY": "Community",
+    "PSYCHIATRY": "Psychiatry",
+    "CHILD_ENQUIRY": "Child Enquiry",
+    "CHILD_CONFERENCE": "Child Conference",
+    "ADULT_SAFEGUARDING": "Adult Safeguarding",
+}
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
@@ -58,18 +69,34 @@ def create_board(
     auth: AuthContext = Depends(require_user),
 ) -> BoardOut:
     sb = user_client(auth.raw_token)
-    insert = (
-        sb.table("mdt_boards")
-        .insert(
-            {
-                "practice_id": payload.practice_id,
-                "board_type": payload.board_type,
-                "name": payload.name,
-                "created_by": auth.user_id,
-            }
+    try:
+        insert = (
+            sb.table("mdt_boards")
+            .insert(
+                {
+                    "practice_id": payload.practice_id,
+                    "board_type": payload.board_type,
+                    "name": payload.name,
+                    "created_by": auth.user_id,
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
+    except APIError as exc:
+        # One board per (practice, board_type) is enforced by a UNIQUE
+        # constraint; turn the raw 23505 into a message a clinician understands.
+        code = getattr(exc, "code", None)
+        message = (getattr(exc, "message", None) or str(exc)).lower()
+        if code == "23505" or "duplicate key" in message:
+            label = BOARD_TYPE_LABELS.get(payload.board_type, payload.board_type)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This practice already has a {label} board. "
+                    "Each practice can have one board per category."
+                ),
+            ) from exc
+        raise
     rows = insert.data or []
     if not rows:
         raise HTTPException(

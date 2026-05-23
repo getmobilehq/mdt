@@ -3,12 +3,7 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-const SOURCES = [
-  { id: "GP", label: "GP" },
-  { id: "DN", label: "District Nurse" },
-  { id: "SW", label: "Social Worker" },
-] as const;
+import { PATIENT_SOURCES, type PatientSourceId } from "@/lib/sources";
 
 // Date of birth must be in the past (no future births) and within a
 // plausible human lifespan — scopes the native date picker accordingly.
@@ -30,7 +25,7 @@ export default function NewPatientPage({
   const [fullName, setFullName] = useState("");
   const [nhs, setNhs] = useState("");
   const [dob, setDob] = useState("");
-  const [source, setSource] = useState<(typeof SOURCES)[number]["id"]>("GP");
+  const [source, setSource] = useState<PatientSourceId>("GP");
   const [summary, setSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -118,12 +113,10 @@ export default function NewPatientPage({
           <span className="font-medium">Source</span>
           <select
             value={source}
-            onChange={(e) =>
-              setSource(e.target.value as (typeof SOURCES)[number]["id"])
-            }
+            onChange={(e) => setSource(e.target.value as PatientSourceId)}
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
-            {SOURCES.map((s) => (
+            {PATIENT_SOURCES.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>

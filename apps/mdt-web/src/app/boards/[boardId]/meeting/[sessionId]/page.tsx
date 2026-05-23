@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { CopyLinkButton } from "./copy-link-button";
 import { DailyFrame } from "./daily-frame";
 import { MeetingRunner } from "./meeting-runner";
 
@@ -10,7 +11,7 @@ type PatientSnap = {
     full_name: string;
     nhs_number: string;
     summary: string | null;
-    source: "GP" | "DN" | "SW";
+    source: string;
   } | null;
 };
 
@@ -67,6 +68,7 @@ export default async function MeetingPage({
               {entries.length} patients
             </p>
           </div>
+          <CopyLinkButton />
         </header>
         {session.daily_room_url ? <DailyFrame sessionId={sessionId} /> : null}
         {entries.length === 0 ? (

@@ -35,6 +35,14 @@ export function AddTaskForm({ patientId }: { patientId: string }) {
       setError(error.message);
       return;
     }
+    // Once work has been assigned the patient is no longer just "to discuss".
+    // Guarded on the current column so we only auto-advance the first time and
+    // never drag a patient back from a later column.
+    await supabase
+      .from("patients")
+      .update({ column_id: "IN_PROGRESS" })
+      .eq("id", patientId)
+      .eq("column_id", "TO_DISCUSS");
     setDescription("");
     setDeadline("");
     router.refresh();

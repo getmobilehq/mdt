@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { sourceLabel } from "@/lib/sources";
 
 type Entry = {
   position: number;
@@ -10,7 +11,7 @@ type Entry = {
   full_name: string;
   nhs_last4: string;
   summary: string | null;
-  source: "GP" | "DN" | "SW";
+  source: string;
 };
 
 export function MeetingRunner({
@@ -107,7 +108,7 @@ export function MeetingRunner({
       <article className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-semibold">{current.full_name}</h2>
         <p className="text-xs text-zinc-500">
-          {current.nhs_last4} · {current.source}
+          {current.nhs_last4} · {sourceLabel(current.source)}
         </p>
         {current.summary ? (
           <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">

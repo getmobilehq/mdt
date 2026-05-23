@@ -8,7 +8,7 @@ from ..audit import record_audit
 from ..auth import AuthContext, require_user
 from ..supabase_client import user_client
 
-PatientSource = Literal["GP", "DN", "SW"]
+PatientSource = Literal["GP", "DN", "SW", "SP", "CONS", "PALL", "CC"]
 BoardColumn = Literal["TO_DISCUSS", "IN_PROGRESS", "FOLLOW_UP", "COMPLETED"]
 
 router = APIRouter(prefix="/patients", tags=["patients"])

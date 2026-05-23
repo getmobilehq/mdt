@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { sourceLabel } from "@/lib/sources";
+import {
+  roleLabel,
+  TASK_STATUS_LABELS,
+  TASK_STATUS_STYLES,
+  type TaskStatus,
+} from "@/lib/tasks";
 
 const COLUMNS = [
   { id: "TO_DISCUSS", label: "To Discuss" },
@@ -15,9 +22,17 @@ type PatientRow = {
   id: string;
   full_name: string;
   nhs_number: string;
-  source: "GP" | "DN" | "SW";
+  source: string;
   column_id: ColumnId;
   summary: string | null;
+};
+
+type TaskRow = {
+  id: string;
+  patient_id: string;
+  assigned_role: string;
+  assigned_to_user_id: string | null;
+  status: TaskStatus;
 };
 
 function redactNhs(nhs: string): string {
@@ -55,6 +70,40 @@ export default async function BoardPage({
     COMPLETED: [],
   };
   for (const p of rows) byColumn[p.column_id].push(p);
+
+  // Surface task status + assignee on each card without opening the patient.
+  const patientIds = rows.map((p) => p.id);
+  const tasksByPatient: Record<string, TaskRow[]> = {};
+  const assigneeNames: Record<string, string> = {};
+  if (patientIds.length > 0) {
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select("id, patient_id, assigned_role, assigned_to_user_id, status")
+      .in("patient_id", patientIds)
+      .neq("status", "CANCELLED")
+      .order("created_at");
+
+    const taskRows = (tasks ?? []) as TaskRow[];
+    for (const t of taskRows) (tasksByPatient[t.patient_id] ??= []).push(t);
+
+    const userIds = [
+      ...new Set(taskRows.map((t) => t.assigned_to_user_id).filter(Boolean)),
+    ] as string[];
+    if (userIds.length > 0) {
+      const { data: people } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      for (const person of people ?? [])
+        assigneeNames[person.id as string] = person.full_name as string;
+    }
+  }
+
+  function assigneeLabel(t: TaskRow): string {
+    if (t.assigned_to_user_id && assigneeNames[t.assigned_to_user_id])
+      return assigneeNames[t.assigned_to_user_id];
+    return roleLabel(t.assigned_role);
+  }
 
   return (
     <div className="flex flex-1 flex-col px-6 py-10">
@@ -108,12 +157,31 @@ export default async function BoardPage({
                     >
                       <p className="font-medium">{p.full_name}</p>
                       <p className="text-xs text-zinc-500">
-                        {redactNhs(p.nhs_number)} · {p.source}
+                        {redactNhs(p.nhs_number)} · {sourceLabel(p.source)}
                       </p>
                       {p.summary ? (
                         <p className="mt-2 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
                           {p.summary}
                         </p>
+                      ) : null}
+                      {(tasksByPatient[p.id]?.length ?? 0) > 0 ? (
+                        <ul className="mt-2 flex flex-col gap-1">
+                          {tasksByPatient[p.id].map((t) => (
+                            <li
+                              key={t.id}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <span className="truncate text-xs text-zinc-600 dark:text-zinc-400">
+                                {assigneeLabel(t)}
+                              </span>
+                              <span
+                                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${TASK_STATUS_STYLES[t.status]}`}
+                              >
+                                {TASK_STATUS_LABELS[t.status]}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
                     </Link>
                   </li>
