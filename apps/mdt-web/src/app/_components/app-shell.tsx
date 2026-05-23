@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
   ClipboardList,
+  ListTodo,
   ScrollText,
   Users,
   ChevronRight,
@@ -15,6 +16,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV = [
   { href: "/boards", label: "Boards", icon: LayoutGrid },
+  { href: "/my-tasks", label: "My tasks", icon: ListTodo },
   { href: "/dn-board", label: "DN board", icon: ClipboardList },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },
@@ -27,6 +29,7 @@ function isBare(pathname: string): boolean {
 
 const SEGMENT_LABELS: Record<string, string> = {
   boards: "Boards",
+  "my-tasks": "My tasks",
   "dn-board": "DN board",
   admin: "Admin",
   audit: "Audit log",

@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sourceLabel } from "@/lib/sources";
+import type { BoardColumnId } from "@/lib/columns";
 import { AddTaskForm } from "./add-task-form";
+import { ColumnMover } from "./column-mover";
 import { NotesSection } from "./notes-section";
 import { TaskRow } from "./task-row";
 
@@ -28,7 +30,7 @@ export default async function PatientPage({
 
   const { data: patient } = await supabase
     .from("patients")
-    .select("id, full_name, nhs_number, dob, source, summary, board_id")
+    .select("id, full_name, nhs_number, dob, source, summary, board_id, column_id")
     .eq("id", patientId)
     .maybeSingle();
 
@@ -46,9 +48,15 @@ export default async function PatientPage({
     <div className="flex flex-1 flex-col px-6 py-10">
       <main className="mx-auto w-full max-w-3xl flex flex-col gap-8">
         <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {patient.full_name}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {patient.full_name}
+            </h1>
+            <ColumnMover
+              patientId={patient.id}
+              column={patient.column_id as BoardColumnId}
+            />
+          </div>
           <p className="text-sm text-zinc-500">
             {redactNhs(patient.nhs_number)} · DOB {patient.dob} ·{" "}
             {sourceLabel(patient.source)}
