@@ -48,7 +48,16 @@ export default function NewBoardPage() {
       .single();
     setPending(false);
     if (error) {
-      setError(error.message);
+      // 23505 = unique_violation: one board per (practice, board_type).
+      if (error.code === "23505") {
+        const label =
+          BOARD_TYPES.find((t) => t.id === boardType)?.label ?? "board of this type";
+        setError(
+          `This practice already has a ${label} board. Each practice can have one board per category.`,
+        );
+      } else {
+        setError(error.message);
+      }
       return;
     }
     router.replace(`/boards/${data.id}`);

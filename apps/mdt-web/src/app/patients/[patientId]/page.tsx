@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { sourceLabel } from "@/lib/sources";
 import { AddTaskForm } from "./add-task-form";
 import { NotesSection } from "./notes-section";
 import { TaskRow } from "./task-row";
@@ -49,7 +50,8 @@ export default async function PatientPage({
             {patient.full_name}
           </h1>
           <p className="text-sm text-zinc-500">
-            {redactNhs(patient.nhs_number)} · DOB {patient.dob} · {patient.source}
+            {redactNhs(patient.nhs_number)} · DOB {patient.dob} ·{" "}
+            {sourceLabel(patient.source)}
           </p>
           {patient.summary ? (
             <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
